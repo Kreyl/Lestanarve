@@ -1,2 +1,8 @@
 Lestanarve_hw/#auto_saved_files#
 Lestanarve_hw/Lestanarve-backups/
+*.ses
+*.dsn
+*.fsxview
+Lestanarve_hw/_autosave-Lestanarve.kicad_pcb
+*.prefs
+Lestanarve_fw/.settings/language.settings.xml
