@@ -2514,9 +2514,9 @@ PllSrc_t Clk_t::GetPllSrc() {
     return (PllSrc_t)tmp;
 }
 
-// M: 1...8; N: 8...86; R: 2,4,6,8
+// N: 8...86; R and Q: 2,4,6,8
 uint8_t Clk_t::SetupPll(uint32_t N, uint32_t R, uint32_t Q) {
-    if(!((N >= 8 and N <= 86) and (R == 2 or R == 4 or R == 6 or R == 8))) return retvBadValue;
+    if(!((N >= 8 and N <= 86) and (R == 2 or R == 4 or R == 6 or R == 8) and(Q == 2 or Q == 4 or Q == 6 or Q == 8))) return retvBadValue;
     if(RCC->CR & RCC_CR_PLLON) return retvBusy; // PLL must be disabled to change dividers
     R = (R / 2) - 1;    // 2,4,6,8 => 0,1,2,3
     Q = (Q / 2) - 1;    // 2,4,6,8 => 0,1,2,3

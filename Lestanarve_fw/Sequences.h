@@ -68,7 +68,7 @@ const LedRGBChunk_t lsqFailure[] = {
 
 const LedSmoothChunk_t lsqLStart[] = {
         {csSetup, 450, LED_TOP_BRIGHTNESS},
-        {csSetup, 450, 1},
+        {csSetup, 450, 4},
         {csEnd}
 };
 

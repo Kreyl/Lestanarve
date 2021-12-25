@@ -2035,7 +2035,8 @@ public:
     void DisablePLL();
     void DisableMSI() { RCC->CR &= ~RCC_CR_MSION; }
 
-    bool IsLseOn()      { return (RCC->BDCR & RCC_BDCR_LSERDY); }
+    bool IsHseOn() { return (RCC->CR & RCC_CR_HSERDY); }
+    bool IsLseOn() { return (RCC->BDCR & RCC_BDCR_LSERDY); }
 
     void SetupBusDividers(AHBDiv_t AHBDiv, APBDiv_t APB1Div, APBDiv_t APB2Div);
 

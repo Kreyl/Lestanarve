@@ -41,6 +41,11 @@
 
 // Light
 #define LED_PIN         { GPIOB, 8, TIM16, 1, invNotInverted, omPushPull, 255 }
+// Npx LEDs
+#define NPX_LED_CNT     29
+#define NPX_SPI         SPI3
+#define NPX_DATA_PIN    GPIOB, 5, AF6
+#define NPX_PWR_PIN     GPIOB, 6
 
 // USB
 #define USB_DM          GPIOA, 11
@@ -102,6 +107,10 @@
 #define UART_DMA_TX_MODE(Chnl) (STM32_DMA_CR_CHSEL(Chnl) | DMA_PRIORITY_LOW | STM32_DMA_CR_MSIZE_BYTE | STM32_DMA_CR_PSIZE_BYTE | STM32_DMA_CR_MINC | STM32_DMA_CR_DIR_M2P | STM32_DMA_CR_TCIE)
 #define UART_DMA_RX_MODE(Chnl) (STM32_DMA_CR_CHSEL(Chnl) | DMA_PRIORITY_MEDIUM | STM32_DMA_CR_MSIZE_BYTE | STM32_DMA_CR_PSIZE_BYTE | STM32_DMA_CR_MINC | STM32_DMA_CR_DIR_P2M | STM32_DMA_CR_CIRC)
 
+// ==== Npx ====
+#define NPX_DMA         STM32_DMA_STREAM_ID(2, 2)  // SPI3 TX
+#define NPX_DMA_REQ     3
+
 // ==== ACG ====
 #define ACG_DMA_TX      STM32_DMA_STREAM_ID(1, 5)
 #define ACG_DMA_RX      STM32_DMA_STREAM_ID(1, 4)
@@ -111,9 +120,6 @@
 #define I2C1_DMA_TX     STM32_DMA_STREAM_ID(1, 6)
 #define I2C1_DMA_RX     STM32_DMA_STREAM_ID(1, 7)
 #define I2C1_DMA_CHNL   3
-
-#define DAC_DMA         STM32_DMA_STREAM_ID(2, 4)
-#define DAC_DMA_CHNL    3
 
 #if ADC_REQUIRED
 #define ADC_DMA         STM32_DMA1_STREAM1

@@ -9,6 +9,7 @@
 #include "MsgQ.h"
 #include "acg_lsm6ds3.h"
 #include "SimpleSensors.h"
+#include "ws2812b.h"
 
 #if 1 // ======================== Variables and defines ========================
 // Forever
@@ -20,6 +21,11 @@ static void OnCmd(Shell_t *PShell);
 
 // ==== Periphery ====
 LedSmooth_t Lumos { LED_PIN };
+static const NeopixelParams_t NpxParams {NPX_SPI, NPX_DATA_PIN,
+    NPX_DMA, NPX_DMA_MODE(NPX_DMA_REQ),
+    NPX_LED_CNT, npxRGB
+};
+Neopixels_t Leds{&NpxParams};
 
 // ==== Timers ====
 //static TmrKL_t TmrEverySecond {MS2ST(1000), evtIdEverySecond, tktPeriodic};
@@ -27,11 +33,26 @@ LedSmooth_t Lumos { LED_PIN };
 #endif
 
 int main(void) {
-    // ==== Init Vcore & clock system ====
-    Clk.SetCoreClk(cclk16MHz);
-//    Clk.SetCoreClk(cclk48MHz);
+#if 1 // ==== Init clock system ====
+    Clk.SetVoltageRange(mvrHiPerf);
+    Clk.SetupFlashLatency(20, mvrHiPerf);
+    Clk.EnablePrefetch();
+    if(Clk.EnableHSE() == retvOk) {
+        Clk.SetupPllSrc(pllsrcHse);
+        Clk.SetupM(3);
+    }
+    else { // PLL fed by MSI
+        Clk.SetupPllSrc(pllsrcMsi);
+        Clk.SetupM(3);
+    }
+    Clk.SetupPll(20, 4, 4);
+    Clk.SetupBusDividers(ahbDiv1, apbDiv1, apbDiv1);
+    if(Clk.EnablePLL() == retvOk) {
+        Clk.EnablePllROut();
+        Clk.SwitchToPLL();
+    }
     Clk.UpdateFreqValues();
-
+#endif
     // === Init OS ===
     halInit();
     chSysInit();
@@ -41,11 +62,21 @@ int main(void) {
     Uart.Init();
     Printf("\r%S %S\r", APP_NAME, XSTRINGIFY(BUILD_TIME));
     Clk.PrintFreqs();
+    if(Clk.IsHseOn()) Printf("Quartz ok\r\n");
+
+    Lumos.Init();
+    Lumos.StartOrRestart(lsqLStart);
+
+    // ==== Leds ====
+    Leds.Init();
+    // LED pwr pin
+    PinSetupOut(NPX_PWR_PIN, omPushPull);
+    PinSetHi(NPX_PWR_PIN);
+    Leds.SetAll(clGreen);
+    Leds.SetCurrentColors();
 
 //    Acg.Init();
 
-//    Lumos.Init();
-//    Lumos.StartOrRestart(lsqLStart);
 
 //    SimpleSensors::Init();
 //    Adc.Init();
