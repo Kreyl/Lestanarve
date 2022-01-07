@@ -1,7 +1,7 @@
 /*
  * acg_lsm6ds3.h
  *
- *  Created on: 2 àâã. 2017 ã.
+ *  Created on: 2 ï¿½ï¿½ï¿½. 2017 ï¿½.
  *      Author: Kreyl
  */
 
@@ -29,8 +29,9 @@ public:
     void Init();
     void Shutdown();
     void Task();
-    const stm32_dma_stream_t *PDmaTx;
-    const stm32_dma_stream_t *PDmaRx;
+    uint8_t GetSta();
+    const stm32_dma_stream_t *PDmaTx = nullptr;
+    const stm32_dma_stream_t *PDmaRx = nullptr;
     Acg_t() : IIrq(ACG_IRQ_PIN, pudPullDown, AcgIrqHandler), AccSpd() {}
 };
 

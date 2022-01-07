@@ -75,7 +75,7 @@ int main(void) {
     Leds.SetAll(clGreen);
     Leds.SetCurrentColors();
 
-//    Acg.Init();
+    Acg.Init();
 
 
 //    SimpleSensors::Init();
@@ -118,19 +118,10 @@ void ProcessCharging(PinSnsState_t *PState, uint32_t Len) {
 #if 1 // ================= Command processing ====================
 void OnCmd(Shell_t *PShell) {
 	Cmd_t *PCmd = &PShell->Cmd;
-    __attribute__((unused)) int32_t dw32 = 0;  // May be unused in some configurations
-//    Uart.Printf("%S\r", PCmd->Name);
-    // Handle command
     if(PCmd->NameIs("Ping")) {
         PShell->Ok();
     }
     else if(PCmd->NameIs("Version")) PShell->Print("%S %S\r", APP_NAME, XSTRINGIFY(BUILD_TIME));
-
-    else if(PCmd->NameIs("lum")) {
-        uint8_t Brt;
-        if(PCmd->GetNext<uint8_t>(&Brt) != retvOk) { PShell->CmdError(); return; }
-        Lumos.SetBrightness(Brt);
-    }
 
     else PShell->CmdUnknown();
 }

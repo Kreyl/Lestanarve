@@ -158,6 +158,12 @@ void Acg_t::Init() {
 void Acg_t::Shutdown() {
 }
 
+uint8_t Acg_t::GetSta() {
+    uint8_t b;
+    IReadReg(0x1E, &b);
+    return b;
+}
+
 #if 1 // =========================== Low level =================================
 void Acg_t::IWriteReg(uint8_t AAddr, uint8_t AValue) {
     ICsLo();
