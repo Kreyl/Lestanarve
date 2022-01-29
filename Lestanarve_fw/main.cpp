@@ -10,6 +10,7 @@
 #include "acg_lsm6ds3.h"
 #include "SimpleSensors.h"
 #include "ws2812b.h"
+#include "LedEffects.h"
 
 #if 1 // ======================== Variables and defines ========================
 // Forever
@@ -75,8 +76,10 @@ int main(void) {
     Leds.SetAll(clGreen);
     Leds.SetCurrentColors();
 
-    Acg.Init();
+//    Acg.Init();
 
+    Eff::Init();
+    Eff::Start();
 
 //    SimpleSensors::Init();
 //    Adc.Init();
@@ -122,6 +125,42 @@ void OnCmd(Shell_t *PShell) {
         PShell->Ok();
     }
     else if(PCmd->NameIs("Version")) PShell->Print("%S %S\r", APP_NAME, XSTRINGIFY(BUILD_TIME));
+
+    else if(PCmd->NameIs("Set")) {
+        int R, A;
+        Color_t Clr;
+        if(PCmd->GetNext<int>(&R) != retvOk) { PShell->BadParam(); return; }
+        if(PCmd->GetNext<int>(&A) != retvOk) { PShell->BadParam(); return; }
+        if(PCmd->GetClrRGB(&Clr) != retvOk) { PShell->BadParam(); return; }
+        Eff::Set(R, A, Clr);
+        Leds.SetCurrentColors();
+        PShell->Ok();
+    }
+
+    else if(PCmd->NameIs("SetIndx")) {
+        int Indx;
+        Color_t Clr;
+        if(PCmd->GetNext<int>(&Indx) != retvOk) { PShell->BadParam(); return; }
+        if(PCmd->GetClrRGB(&Clr) != retvOk) { PShell->BadParam(); return; }
+        Leds.ClrBuf[Indx] = Clr;
+        Leds.SetCurrentColors();
+        PShell->Ok();
+    }
+
+//    else if(PCmd->NameIs("Radius")) {
+//        uint32_t Delay;
+//        Color_t Clr;
+//        if(PCmd->GetNext<uint32_t>(&Delay) != retvOk) { PShell->BadParam(); return; }
+//        if(PCmd->GetClrRGB(&Clr) != retvOk) { PShell->BadParam(); return; }
+//        Eff::StartRadius(Delay, Clr);
+//        PShell->Ok();
+//    }
+
+    else if(PCmd->NameIs("CLS")) {
+        Leds.SetAll(clBlack);
+        Leds.SetCurrentColors();
+        PShell->Ok();
+    }
 
     else PShell->CmdUnknown();
 }

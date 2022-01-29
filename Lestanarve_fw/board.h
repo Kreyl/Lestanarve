@@ -42,7 +42,7 @@
 // Light
 #define LED_PIN         { GPIOB, 8, TIM16, 1, invNotInverted, omPushPull, 255 }
 // Npx LEDs
-#define NPX_LED_CNT     29
+#define NPX_LED_CNT     28
 #define NPX_SPI         SPI3
 #define NPX_DATA_PIN    GPIOB, 5, AF6
 #define NPX_PWR_PIN     GPIOB, 6

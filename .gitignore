@@ -6,3 +6,5 @@ Lestanarve_hw/Lestanarve-backups/
 Lestanarve_hw/_autosave-Lestanarve.kicad_pcb
 *.prefs
 Lestanarve_fw/.settings/language.settings.xml
+*.xml
+Tools/Conv/.idea/
