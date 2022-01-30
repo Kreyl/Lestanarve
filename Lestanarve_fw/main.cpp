@@ -73,10 +73,21 @@ int main(void) {
     // LED pwr pin
     PinSetupOut(NPX_PWR_PIN, omPushPull);
     PinSetHi(NPX_PWR_PIN);
-    Leds.SetAll(clGreen);
-    Leds.SetCurrentColors();
+//    Leds.SetAll(clGreen);
+//    Leds.SetCurrentColors();
 
 //    Acg.Init();
+
+    // Setup stoch settings
+    StochSettings.DelayIdleMin = 9;
+    StochSettings.DelayIdleMax = 18;
+    StochSettings.DelayOnMin = 9;
+    StochSettings.DelayOnMax = 18;
+    StochSettings.SmoothMin = 220;
+    StochSettings.SmoothMax = 360;
+    StochSettings.ClrHMin = 120;
+    StochSettings.ClrHMax = 270;
+    StochSettings.ClrVIdle = 0;
 
     Eff::Init();
     Eff::Start();
@@ -144,6 +155,35 @@ void OnCmd(Shell_t *PShell) {
         if(PCmd->GetClrRGB(&Clr) != retvOk) { PShell->BadParam(); return; }
         Leds.ClrBuf[Indx] = Clr;
         Leds.SetCurrentColors();
+        PShell->Ok();
+    }
+
+    else if(PCmd->NameIs("Stoch")) {
+        uint32_t DelayIdleMin, DelayIdleMax;
+        uint32_t DelayOnMin, DelayOnMax;
+        uint32_t SmoothMin, SmoothMax;
+        uint16_t ClrHMin, ClrHMax;
+        uint8_t ClrVIdle;
+        if(PCmd->GetNext<uint32_t>(&DelayIdleMin) != retvOk) { PShell->BadParam(); return; }
+        if(PCmd->GetNext<uint32_t>(&DelayIdleMax) != retvOk) { PShell->BadParam(); return; }
+        if(PCmd->GetNext<uint32_t>(&DelayOnMin) != retvOk) { PShell->BadParam(); return; }
+        if(PCmd->GetNext<uint32_t>(&DelayOnMax) != retvOk) { PShell->BadParam(); return; }
+        if(PCmd->GetNext<uint32_t>(&SmoothMin) != retvOk) { PShell->BadParam(); return; }
+        if(PCmd->GetNext<uint32_t>(&SmoothMax) != retvOk) { PShell->BadParam(); return; }
+        if(PCmd->GetNext<uint16_t>(&ClrHMin) != retvOk) { PShell->BadParam(); return; }
+        if(PCmd->GetNext<uint16_t>(&ClrHMax) != retvOk) { PShell->BadParam(); return; }
+        if(PCmd->GetNext<uint8_t>(&ClrVIdle) != retvOk) { PShell->BadParam(); return; }
+        chSysLock();
+        StochSettings.DelayIdleMin = DelayIdleMin;
+        StochSettings.DelayIdleMax = DelayIdleMax;
+        StochSettings.DelayOnMin = DelayOnMin;
+        StochSettings.DelayOnMax = DelayOnMax;
+        StochSettings.SmoothMin = SmoothMin;
+        StochSettings.SmoothMax = SmoothMax;
+        StochSettings.ClrHMin = ClrHMin;
+        StochSettings.ClrHMax = ClrHMax;
+        StochSettings.ClrVIdle = ClrVIdle;
+        chSysUnlock();
         PShell->Ok();
     }
 

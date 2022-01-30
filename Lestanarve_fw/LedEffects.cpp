@@ -49,21 +49,101 @@ static int ITable[LED_CNT][2] = {
     {14, 24}, //27
 };
 
+/*
+for(int32_t A=AMIN; A<AMAX; A++) {
+    Leds.SetAll(clBlack);
+    for(int32_t R=RMIN; R<RMAX; R++) {
+        Eff::Set(R, A, clGreen);
+    }
+    Leds.SetCurrentColors();
+}
+*/
 
+StochSettings_t StochSettings;
+
+class Lipte_t {
+private:
+    enum {staIdle, staFadeIn, staOn, staFadeOut} IState = staFadeIn;
+    uint32_t DelayIdle, DelayOn;
+    uint32_t Smooth;
+    int32_t ITmr;
+    // Led settings
+    ColorHSV_t IClrPrev, IClrTarget{0, 100, 100};
+    uint32_t IClrDelay;
+public:
+    ColorHSV_t IClrCurr;
+    void Generate() {
+        StochSettings.Generate(&DelayIdle, &DelayOn, &Smooth, &IClrTarget.H);
+        IClrCurr = IClrTarget;
+        IClrCurr.V = StochSettings.ClrVIdle;
+        IClrPrev = IClrCurr;
+        ITmr = ClrCalcDelay(IClrCurr.V, Smooth);
+    }
+
+    bool OnTickHasChanged() {
+//        Printf("%d\r", ITmr);
+        ITmr--;
+        if(ITmr <= 0) {
+            switch(IState) {
+                case staIdle:
+                    IState = staFadeIn;
+                    Generate();
+                    break;
+
+                case staFadeIn:
+                    // Check if FadeIn done
+                    if(IClrCurr == IClrTarget) {
+                        IState = staOn;
+                        ITmr = DelayOn;
+                    }
+                    // Not done
+                    else {
+                        IClrCurr.V++;
+                        ITmr = ClrCalcDelay(IClrCurr.V, Smooth);
+                    }
+                    break;
+
+                case staOn:
+                    IState = staFadeOut;
+                    ITmr = ClrCalcDelay(IClrCurr.V, Smooth);
+                    break;
+
+                case staFadeOut:
+                    // Check if FadeOut done
+                    if(IClrCurr.V == StochSettings.ClrVIdle) {
+                        IState = staIdle;
+                        ITmr = DelayIdle;
+                    }
+                    // Not done
+                    else {
+                        IClrCurr.V--;
+                        ITmr = ClrCalcDelay(IClrCurr.V, Smooth);
+                    }
+                    break;
+            } // switch
+        } // if tmr <= 0
+        bool HasChanged = !(IClrCurr == IClrPrev);
+        IClrPrev = IClrCurr;
+        return HasChanged;
+    }
+};
+
+Lipte_t Lipti[LED_CNT];
 
 static THD_WORKING_AREA(waEffThread, 256);
 __noreturn
 static void EffThread(void *arg) {
     chRegSetThreadName("Eff");
     while(true) {
-        for(int32_t A=AMIN; A<AMAX; A++) {
-            Leds.SetAll(clBlack);
-            for(int32_t R=RMIN; R<RMAX; R++) {
-                Eff::Set(R, A, clGreen);
+        chThdSleepMilliseconds(1);
+        bool HasChanged = false;
+        for(int i=0; i<LED_CNT; i++) {
+            if(Lipti[i].OnTickHasChanged()) {
+                Leds.ClrBuf[i] = Lipti[i].IClrCurr.ToRGB();
+                HasChanged = true;
             }
-            Leds.SetCurrentColors();
         }
-
+        if(HasChanged) Leds.SetCurrentColors();
     } // while true
 }
 
@@ -71,6 +151,7 @@ static void EffThread(void *arg) {
 namespace Eff {
 
 void Init() {
+    for(auto &Lipte : Lipti) Lipte.Generate();
     chThdCreateStatic(waEffThread, sizeof(waEffThread), HIGHPRIO, (tfunc_t)EffThread, NULL);
 }
 
