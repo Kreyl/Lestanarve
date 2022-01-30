@@ -22,7 +22,7 @@
 
 Acg_t Acg;
 static Spi_t ISpi {ACG_SPI};
-static thread_reference_t ThdRef = nullptr;
+//static thread_reference_t ThdRef = nullptr;
 
 static inline void ICsHi() { PinSetHi(ACG_CS_PIN); }
 static inline void ICsLo() { PinSetLo(ACG_CS_PIN); }
@@ -34,28 +34,29 @@ void AcgDmaRxCompIrq(void *p, uint32_t flags) {
     // Disable DMA
     dmaStreamDisable(Acg.PDmaTx);
     dmaStreamDisable(Acg.PDmaRx);
-    chSysLockFromISR();
-    chThdResumeI(&ThdRef, MSG_OK);
-    chSysUnlockFromISR();
+    Acg.AccSpd = Acg.IAccSpd;
+//    chSysLockFromISR();
+//    chThdResumeI(&ThdRef, MSG_OK);
+//    chSysUnlockFromISR();
 }
 
 // Thread
-static THD_WORKING_AREA(waAcgThread, 512);
-__noreturn
-static void AcgThread(void *arg) {
-    chRegSetThreadName("Acg");
-    Acg.Task();
-}
+//static THD_WORKING_AREA(waAcgThread, 512);
+//__noreturn
+//static void AcgThread(void *arg) {
+//    chRegSetThreadName("Acg");
+//    Acg.Task();
+//}
 
-__noreturn
-void Acg_t::Task() {
-#if READ_FROM_FILE
-    bool Done = false;
-#endif
-    while(true) {
-        chSysLock();
-        chThdSuspendS(&ThdRef); // Wait IRQ
-        chSysUnlock();
+//__noreturn
+//void Acg_t::Task() {
+//#if READ_FROM_FILE
+//    bool Done = false;
+//#endif
+//    while(true) {
+//        chSysLock();
+//        chThdSuspendS(&ThdRef); // Wait IRQ
+//        chSysUnlock();
 
 //        rPkt_t IPkt;
 //        IPkt.Time = chVTGetSystemTimeX() / 10;
@@ -73,12 +74,12 @@ void Acg_t::Task() {
 //        Radio.TxBuf.PutI(IPkt);
 //        chSysUnlock();
 
-        AccSpd.Print();
+//        AccSpd.Print();
 
         // Detect motion
 //        SaberMotn.Update(AccSpd.a, AccSpd.g);
-    }
-}
+//    }
+//}
 
 void Acg_t::Init() {
 #if 1 // ==== GPIO ====
@@ -143,7 +144,7 @@ void Acg_t::Init() {
     dmaStreamSetPeripheral(PDmaRx, &ACG_SPI->DR);
 #endif
     // Thread
-    chThdCreateStatic(waAcgThread, sizeof(waAcgThread), NORMALPRIO, (tfunc_t)AcgThread, NULL);
+//    chThdCreateStatic(waAcgThread, sizeof(waAcgThread), NORMALPRIO, (tfunc_t)AcgThread, NULL);
     IIrq.EnableIrq(IRQ_PRIO_MEDIUM);
     Printf("IMU Init Done\r", b);
 #if LOG_TO_FILE
@@ -184,7 +185,7 @@ const uint8_t SAddr = 0x3E | 0x80; // Add "Read" bit
 void AcgIrqHandler() {
     ICsLo();
     // RX
-    dmaStreamSetMemory0(Acg.PDmaRx, &Acg.AccSpd);
+    dmaStreamSetMemory0(Acg.PDmaRx, &Acg.IAccSpd);
     dmaStreamSetTransactionSize(Acg.PDmaRx, sizeof(AccSpd_t));
     dmaStreamSetMode(Acg.PDmaRx, ACG_DMA_RX_MODE);
     dmaStreamEnable(Acg.PDmaRx);

@@ -11,6 +11,7 @@
 #include "SimpleSensors.h"
 #include "ws2812b.h"
 #include "LedEffects.h"
+#include <math.h>
 
 #if 1 // ======================== Variables and defines ========================
 // Forever
@@ -28,9 +29,10 @@ static const NeopixelParams_t NpxParams {NPX_SPI, NPX_DATA_PIN,
 };
 Neopixels_t Leds{&NpxParams};
 
+void ProcessAcc();
+
 // ==== Timers ====
-//static TmrKL_t TmrEverySecond {MS2ST(1000), evtIdEverySecond, tktPeriodic};
-//static int32_t TimeS;
+static TmrKL_t TmrAcg {TIME_MS2I(11), evtIdAcc, tktPeriodic};
 #endif
 
 int main(void) {
@@ -76,7 +78,7 @@ int main(void) {
 //    Leds.SetAll(clGreen);
 //    Leds.SetCurrentColors();
 
-//    Acg.Init();
+    Acg.Init();
 
     // Setup stoch settings
     StochSettings.DelayIdleMin = 9;
@@ -91,6 +93,8 @@ int main(void) {
 
     Eff::Init();
     Eff::Start();
+
+    TmrAcg.StartOrRestart();
 
 //    SimpleSensors::Init();
 //    Adc.Init();
@@ -117,6 +121,10 @@ void ITask() {
 //                ReadAndSetupMode();
 //                break;
 
+            case evtIdAcc:
+                ProcessAcc();
+                break;
+
             case evtIdShellCmdRcvd:
                 while(((CmdUart_t*)Msg.Ptr)->TryParseRxBuff() == retvOk) OnCmd((Shell_t*)((CmdUart_t*)Msg.Ptr));
                 break;
@@ -124,6 +132,86 @@ void ITask() {
         } // Switch
     } // while true
 } // ITask()
+
+float Diff(float x0) {
+    static float y1 = 0;
+    static float x1 = 4300000;
+    float y0 = x0 - x1 + 0.9 * y1;
+    y1 = y0;
+    x1 = x0;
+    return y0;
+}
+
+template <uint32_t WindowSz>
+class MAvg_t {
+private:
+    float IBuf[WindowSz], ISum;
+public:
+    float CalcNew(float NewVal) {
+        ISum = ISum + NewVal - IBuf[WindowSz-1];
+        // Shift buf
+        for(int i=(WindowSz-1); i>0; i--) IBuf[i] = IBuf[i-1];
+        IBuf[0] = NewVal;
+        return ISum / WindowSz;
+    }
+};
+
+template <uint32_t WindowSz>
+class MMax_t {
+private:
+    uint32_t Cnt1 = 0, Cnt2 = WindowSz / 2;
+    float Max1 = -INFINITY, Max2 = -INFINITY;
+public:
+    float CalcNew(float NewVal) {
+        Cnt1++;
+        Cnt2++;
+        // Threat Max2
+        if(Cnt2 >= WindowSz) {
+            Max2 = NewVal;
+            Cnt2 = 0;
+        }
+        else {
+            if(NewVal > Max2) Max2 = NewVal;
+        }
+        // Threat Max1
+        if(Cnt1 >= WindowSz) {
+            Cnt1 = 0;
+            Max1 = (NewVal > Max2)? NewVal : Max2;
+        }
+        else { if(NewVal > Max1) Max1 = NewVal; }
+        return Max1;
+    }
+};
+
+MAvg_t<8> MAvgAcc;
+MMax_t<256> MMaxDelta;
+MAvg_t<256> MAvgDelta;
+
+#define DELTA_TOP   2000000
+
+void ProcessAcc() {
+    AccSpd_t AccSpd;
+    chSysLock();
+    AccSpd = Acg.AccSpd;
+    chSysUnlock();
+    float a = AccSpd.a[0] * AccSpd.a[0] + AccSpd.a[1] * AccSpd.a[1] + AccSpd.a[2] * AccSpd.a[2];
+    a = Diff(a);
+    float Avg = MAvgAcc.CalcNew(a);
+    float Delta = abs(Avg);
+    if(Delta > DELTA_TOP) Delta = DELTA_TOP;
+//    Delta = MAvgDelta.CalcNew(Delta);
+    float DeltaMax = MMaxDelta.CalcNew(Delta);
+    float xval = MAvgDelta.CalcNew(DeltaMax);
+    // Calculate new settings
+    float fSmoothMin = abs(Proportion<float>(0, DELTA_TOP, 220, 9, xval));
+    float fSmoothMax = abs(Proportion<float>(0, DELTA_TOP, 360, 18, xval));
+    int32_t SmoothMin = (int32_t) fSmoothMin;
+    int32_t SmoothMax = (int32_t) fSmoothMax;
+
+    StochSettings.SmoothMin = SmoothMin;
+    StochSettings.SmoothMax = SmoothMin;
+    Printf("%d\t%d\r", SmoothMin, SmoothMax);
+}
 
 void ProcessCharging(PinSnsState_t *PState, uint32_t Len) {
 
