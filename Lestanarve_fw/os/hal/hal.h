@@ -149,7 +149,7 @@
 //#include "hal_spi.h"
 //#include "hal_trng.h"
 //#include "hal_uart.h"
-//#include "hal_usb.h"
+#include "hal_usb.h"
 //#include "hal_wdg.h"
 //#include "hal_wspi.h"
 

@@ -12,6 +12,8 @@
 #include "ws2812b.h"
 #include "LedEffects.h"
 #include <math.h>
+#include "kl_fs_utils.h"
+#include "usb_msd.h"
 
 #if 1 // ======================== Variables and defines ========================
 // Forever
@@ -21,15 +23,24 @@ CmdUart_t Uart{CmdUartParams};
 static void ITask();
 static void OnCmd(Shell_t *PShell);
 
-// ==== Periphery ====
+// ==== LEDs ====
+#define SMOOTH_MIN_IDLE     270
+#define SMOOTH_MAX_IDLE     405
+#define SMOOTH_MIN_FAST     45
+#define SMOOTH_MAX_FAST     90
+
 LedSmooth_t Lumos { LED_PIN };
 static const NeopixelParams_t NpxParams {NPX_SPI, NPX_DATA_PIN,
     NPX_DMA, NPX_DMA_MODE(NPX_DMA_REQ),
     NPX_LED_CNT, npxRGB
 };
 Neopixels_t Leds{&NpxParams};
-
 void ProcessAcc();
+
+// ==== USB & FileSys ====
+FATFS FlashFS;
+uint8_t LoadSettings();
+bool UsbIsConnected = false;
 
 // ==== Timers ====
 static TmrKL_t TmrAcg {TIME_MS2I(11), evtIdAcc, tktPeriodic};
@@ -38,21 +49,37 @@ static TmrKL_t TmrAcg {TIME_MS2I(11), evtIdAcc, tktPeriodic};
 int main(void) {
 #if 1 // ==== Init clock system ====
     Clk.SetVoltageRange(mvrHiPerf);
-    Clk.SetupFlashLatency(20, mvrHiPerf);
+    Clk.SetupFlashLatency(40, mvrHiPerf);
     Clk.EnablePrefetch();
+    // HSE or MSI
     if(Clk.EnableHSE() == retvOk) {
         Clk.SetupPllSrc(pllsrcHse);
         Clk.SetupM(3);
     }
     else { // PLL fed by MSI
         Clk.SetupPllSrc(pllsrcMsi);
-        Clk.SetupM(3);
+        Clk.SetupM(1);
     }
-    Clk.SetupPll(20, 4, 4);
+    // SysClock 40MHz
+    Clk.SetupPll(20, 2, 4);
     Clk.SetupBusDividers(ahbDiv1, apbDiv1, apbDiv1);
     if(Clk.EnablePLL() == retvOk) {
         Clk.EnablePllROut();
         Clk.SwitchToPLL();
+    }
+    // 48MHz clock for USB & 24MHz clock for ADC
+    Clk.SetupPllSai1(24, 4, 2, 7); // 4MHz * 24 = 96; R = 96 / 4 = 24, Q = 96 / 2 = 48
+    if(Clk.EnablePllSai1() == retvOk) {
+        // Setup Sai1R as ADC source
+        Clk.EnableSai1ROut();
+        uint32_t tmp = RCC->CCIPR;
+        tmp &= ~RCC_CCIPR_ADCSEL;
+        tmp |= 0b01UL << 28; // SAI1R is ADC clock
+        // Setup Sai1Q as 48MHz source
+        Clk.EnableSai1QOut();
+        tmp &= ~RCC_CCIPR_CLK48SEL;
+        tmp |= 0b01UL << 26;
+        RCC->CCIPR = tmp;
     }
     Clk.UpdateFreqValues();
 #endif
@@ -68,7 +95,6 @@ int main(void) {
     if(Clk.IsHseOn()) Printf("Quartz ok\r\n");
 
     Lumos.Init();
-    Lumos.StartOrRestart(lsqLStart);
 
     // ==== Leds ====
     Leds.Init();
@@ -78,6 +104,15 @@ int main(void) {
 //    Leds.SetAll(clGreen);
 //    Leds.SetCurrentColors();
 
+    // Init filesystem
+    FRESULT err;
+    err = f_mount(&FlashFS, "", 0);
+    if(err == FR_OK) {
+        if(LoadSettings() == retvOk) Lumos.StartOrRestart(lsqLStart);
+        else Lumos.StartOrRestart(lsqLError);
+    }
+    else Printf("FS error\r");
+
     Acg.Init();
 
     // Setup stoch settings
@@ -85,8 +120,8 @@ int main(void) {
     StochSettings.DelayIdleMax = 18;
     StochSettings.DelayOnMin = 9;
     StochSettings.DelayOnMax = 18;
-    StochSettings.SmoothMin = 220;
-    StochSettings.SmoothMax = 360;
+    StochSettings.SmoothMin = SMOOTH_MIN_IDLE;
+    StochSettings.SmoothMax = SMOOTH_MAX_IDLE;
     StochSettings.ClrHMin = 120;
     StochSettings.ClrHMax = 270;
     StochSettings.ClrVIdle = 0;
@@ -96,7 +131,8 @@ int main(void) {
 
     TmrAcg.StartOrRestart();
 
-//    SimpleSensors::Init();
+    UsbMsd.Init();
+    SimpleSensors::Init();
 //    Adc.Init();
 
     // ==== Time and timers ====
@@ -128,11 +164,46 @@ void ITask() {
             case evtIdShellCmdRcvd:
                 while(((CmdUart_t*)Msg.Ptr)->TryParseRxBuff() == retvOk) OnCmd((Shell_t*)((CmdUart_t*)Msg.Ptr));
                 break;
+
+#if 1       // ======= USB =======
+            case evtIdUsbConnect:
+                Printf("USB connect\r");
+                UsbMsd.Connect();
+                break;
+            case evtIdUsbDisconnect:
+                UsbMsd.Disconnect();
+                Printf("USB disconnect\r");
+//                if(Settings.Load() != retvOk) LedInd.StartOrRestart(lsqError); // XXX
+                break;
+            case evtIdUsbReady:
+                Printf("USB ready\r");
+                break;
+#endif
             default: Printf("Unhandled Msg %u\r", Msg.ID); break;
         } // Switch
     } // while true
 } // ITask()
 
+void ProcessUsbDetect(PinSnsState_t *PState, uint32_t Len) {
+    if((*PState == pssRising or *PState == pssHi) and !UsbIsConnected) {
+        UsbIsConnected = true;
+        EvtQMain.SendNowOrExit(EvtMsg_t(evtIdUsbConnect));
+    }
+    else if((*PState == pssFalling or *PState == pssLo) and UsbIsConnected) {
+        UsbIsConnected = false;
+        EvtQMain.SendNowOrExit(EvtMsg_t(evtIdUsbDisconnect));
+    }
+}
+
+void ProcessCharging(PinSnsState_t *PState, uint32_t Len) {
+
+}
+
+uint8_t LoadSettings() {
+    return retvOk;
+}
+
+#if 1 // ========================= Acg to Eff settings =========================
 float Diff(float x0) {
     static float y1 = 0;
     static float x1 = 4300000;
@@ -184,7 +255,7 @@ public:
 };
 
 MAvg_t<8> MAvgAcc;
-MMax_t<256> MMaxDelta;
+MMax_t<64> MMaxDelta;
 MAvg_t<256> MAvgDelta;
 
 #define DELTA_TOP   2000000
@@ -203,19 +274,18 @@ void ProcessAcc() {
     float DeltaMax = MMaxDelta.CalcNew(Delta);
     float xval = MAvgDelta.CalcNew(DeltaMax);
     // Calculate new settings
-    float fSmoothMin = abs(Proportion<float>(0, DELTA_TOP, 220, 9, xval));
-    float fSmoothMax = abs(Proportion<float>(0, DELTA_TOP, 360, 18, xval));
+    float fSmoothMin = abs(Proportion<float>(0, DELTA_TOP, SMOOTH_MIN_IDLE, SMOOTH_MIN_FAST, xval));
+    float fSmoothMax = abs(Proportion<float>(0, DELTA_TOP, SMOOTH_MAX_IDLE, SMOOTH_MAX_FAST, xval));
     int32_t SmoothMin = (int32_t) fSmoothMin;
     int32_t SmoothMax = (int32_t) fSmoothMax;
 
+    chSysLock();
     StochSettings.SmoothMin = SmoothMin;
-    StochSettings.SmoothMax = SmoothMin;
-    Printf("%d\t%d\r", SmoothMin, SmoothMax);
+    StochSettings.SmoothMax = SmoothMax;
+    chSysUnlock();
+//    Printf("%d\t%d\r", SmoothMin, SmoothMax);
 }
-
-void ProcessCharging(PinSnsState_t *PState, uint32_t Len) {
-
-}
+#endif
 
 #if 1 // ================= Command processing ====================
 void OnCmd(Shell_t *PShell) {

@@ -72,6 +72,16 @@ const LedSmoothChunk_t lsqLStart[] = {
         {csEnd}
 };
 
+const LedSmoothChunk_t lsqLError[] = {
+        {csSetup, 0, LED_TOP_BRIGHTNESS},
+        {csWait, 99},
+        {csSetup, 0, 0},
+        {csWait, 99},
+        {csRepeat, 45},
+        {csSetup, 450, 4},
+        {csEnd}
+};
+
 
 #endif
 

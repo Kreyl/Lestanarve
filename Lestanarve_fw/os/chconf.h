@@ -182,7 +182,7 @@
  * @note    The default is @p TRUE.
  */
 #if !defined(CH_CFG_USE_REGISTRY)
-#define CH_CFG_USE_REGISTRY                 TRUE
+#define CH_CFG_USE_REGISTRY                 FALSE
 #endif
 
 /**
@@ -272,7 +272,7 @@
  * @note    The default is @p TRUE.
  */
 #if !defined(CH_CFG_USE_EVENTS)
-#define CH_CFG_USE_EVENTS                   FALSE
+#define CH_CFG_USE_EVENTS                   TRUE
 #endif
 
 /**
