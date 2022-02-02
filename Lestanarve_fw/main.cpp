@@ -14,6 +14,7 @@
 #include <math.h>
 #include "kl_fs_utils.h"
 #include "usb_msd.h"
+#include "Settings.h"
 
 #if 1 // ======================== Variables and defines ========================
 // Forever
@@ -24,11 +25,6 @@ static void ITask();
 static void OnCmd(Shell_t *PShell);
 
 // ==== LEDs ====
-#define SMOOTH_MIN_IDLE     270
-#define SMOOTH_MAX_IDLE     405
-#define SMOOTH_MIN_FAST     45
-#define SMOOTH_MAX_FAST     90
-
 LedSmooth_t Lumos { LED_PIN };
 static const NeopixelParams_t NpxParams {NPX_SPI, NPX_DATA_PIN,
     NPX_DMA, NPX_DMA_MODE(NPX_DMA_REQ),
@@ -113,24 +109,13 @@ int main(void) {
     }
     else Printf("FS error\r");
 
-    Acg.Init();
+    Settings.Load();
 
-    // Setup stoch settings
-    StochSettings.DelayIdleMin = 9;
-    StochSettings.DelayIdleMax = 18;
-    StochSettings.DelayOnMin = 9;
-    StochSettings.DelayOnMax = 18;
-    StochSettings.SmoothMin = SMOOTH_MIN_IDLE;
-    StochSettings.SmoothMax = SMOOTH_MAX_IDLE;
-    StochSettings.ClrHMin = 120;
-    StochSettings.ClrHMax = 270;
-    StochSettings.ClrVIdle = 0;
-
+//    Acg.Init();
 
     Eff::Init();
-    Eff::Start();
 
-    TmrAcg.StartOrRestart();
+//    TmrAcg.StartOrRestart();
 
     UsbMsd.Init();
     SimpleSensors::Init();

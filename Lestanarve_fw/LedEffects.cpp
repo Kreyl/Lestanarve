@@ -8,6 +8,7 @@
 #include "LedEffects.h"
 #include "ws2812b.h"
 #include "board.h"
+#include "Settings.h"
 
 extern Neopixels_t Leds;
 
@@ -48,18 +49,6 @@ static int ITable[LED_CNT][2] = {
     {30, 17}, //26
     {14, 24}, //27
 };
-
-/*
-for(int32_t A=AMIN; A<AMAX; A++) {
-    Leds.SetAll(clBlack);
-    for(int32_t R=RMIN; R<RMAX; R++) {
-        Eff::Set(R, A, clGreen);
-    }
-    Leds.SetCurrentColors();
-}
-*/
-
-StochSettings_t StochSettings;
 
 class Lipte_t {
 private:
@@ -155,15 +144,10 @@ void Init() {
     chThdCreateStatic(waEffThread, sizeof(waEffThread), HIGHPRIO, (tfunc_t)EffThread, NULL);
 }
 
-void Start() {
-
-}
-
 void Set(int R, int A, Color_t AClr) {
     for(int i=0; i<LED_CNT; i++) {
         if((R == ITable[i][0]) and (A == ITable[i][1])) Leds.ClrBuf[i] = AClr;
     }
 }
-
 
 }
