@@ -1,7 +1,7 @@
 /*
  * descriptors_mst.h
  *
- *  Created on: 2016/01/29 ã.
+ *  Created on: 2016/01/29 ï¿½.
  *      Author: Kreyl
  */
 
