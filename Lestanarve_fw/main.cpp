@@ -244,8 +244,6 @@ MAvg_t<8> MAvgAcc;
 MMax_t<64> MMaxDelta;
 MAvg_t<256> MAvgDelta;
 
-#define DELTA_TOP   2000000
-
 void ProcessAcc() {
     AccSpd_t AccSpd;
     chSysLock();
@@ -255,19 +253,19 @@ void ProcessAcc() {
     a = Diff(a);
     float Avg = MAvgAcc.CalcNew(a);
     float Delta = abs(Avg);
-    if(Delta > DELTA_TOP) Delta = DELTA_TOP;
+    if(Delta > Settings.TopAcceleration) Delta = Settings.TopAcceleration;
 //    Delta = MAvgDelta.CalcNew(Delta);
     float DeltaMax = MMaxDelta.CalcNew(Delta);
     float xval = MAvgDelta.CalcNew(DeltaMax);
     // Calculate new settings
-    float fSmoothMin = abs(Proportion<float>(0, DELTA_TOP, SMOOTH_MIN_IDLE, SMOOTH_MIN_FAST, xval));
-    float fSmoothMax = abs(Proportion<float>(0, DELTA_TOP, SMOOTH_MAX_IDLE, SMOOTH_MAX_FAST, xval));
+    float fSmoothMin = abs(Proportion<float>(0, Settings.TopAcceleration, Settings.Smooth.MinSlow, Settings.Smooth.MinFast, xval));
+    float fSmoothMax = abs(Proportion<float>(0, Settings.TopAcceleration, Settings.Smooth.MaxSlow, Settings.Smooth.MaxFast, xval));
     int32_t SmoothMin = (int32_t) fSmoothMin;
     int32_t SmoothMax = (int32_t) fSmoothMax;
 
     chSysLock();
-    StochSettings.SmoothMin = SmoothMin;
-    StochSettings.SmoothMax = SmoothMax;
+    Settings.Smooth.MinCurr = SmoothMin;
+    Settings.Smooth.MaxCurr = SmoothMax;
     chSysUnlock();
 //    Printf("%d\t%d\r", SmoothMin, SmoothMax);
 }
@@ -302,6 +300,7 @@ void OnCmd(Shell_t *PShell) {
         PShell->Ok();
     }
 
+    /*
     else if(PCmd->NameIs("Stoch")) {
         uint32_t DelayIdleMin, DelayIdleMax;
         uint32_t DelayOnMin, DelayOnMax;
@@ -330,7 +329,7 @@ void OnCmd(Shell_t *PShell) {
         chSysUnlock();
         PShell->Ok();
     }
-
+*/
 //    else if(PCmd->NameIs("Radius")) {
 //        uint32_t Delay;
 //        Color_t Clr;

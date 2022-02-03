@@ -53,7 +53,7 @@ static int ITable[LED_CNT][2] = {
 class Lipte_t {
 private:
     enum {staIdle, staFadeIn, staOn, staFadeOut} IState = staFadeIn;
-    uint32_t DelayIdle, DelayOn;
+    uint32_t DurationOff, DurationOn;
     uint32_t Smooth;
     int32_t ITmr;
     // Led settings
@@ -62,9 +62,9 @@ private:
 public:
     ColorHSV_t IClrCurr;
     void Generate() {
-        StochSettings.Generate(&DelayIdle, &DelayOn, &Smooth, &IClrTarget.H);
+        Settings.Generate(&DurationOff, &DurationOn, &Smooth, &IClrTarget.H);
         IClrCurr = IClrTarget;
-        IClrCurr.V = StochSettings.ClrVIdle;
+        IClrCurr.V = Settings.ClrVIdle;
         IClrPrev = IClrCurr;
         ITmr = ClrCalcDelay(IClrCurr.V, Smooth);
     }
@@ -83,7 +83,7 @@ public:
                     // Check if FadeIn done
                     if(IClrCurr == IClrTarget) {
                         IState = staOn;
-                        ITmr = DelayOn;
+                        ITmr = DurationOn;
                     }
                     // Not done
                     else {
@@ -99,9 +99,9 @@ public:
 
                 case staFadeOut:
                     // Check if FadeOut done
-                    if(IClrCurr.V == StochSettings.ClrVIdle) {
+                    if(IClrCurr.V == Settings.ClrVIdle) {
                         IState = staIdle;
-                        ITmr = DelayIdle;
+                        ITmr = DurationOff;
                     }
                     // Not done
                     else {
