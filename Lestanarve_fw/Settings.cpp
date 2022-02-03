@@ -27,6 +27,25 @@ void LoadParam(const char *ASection, const char *AKey, T *POutput) {
     }
 }
 
+template <typename T>
+void CheckMinMax(T *PMin, T *PMax, T DefaultMin, T DefaultMax, const char* ParamName) {
+    if(*PMin > *PMax) {
+        Settings.LoadSuccessful = false;
+        *PMin = DefaultMin;
+        *PMax = DefaultMax;
+        Printf("%S Bad Values\r", ParamName);
+    }
+}
+
+template <typename T>
+void CheckValue(T *PParam, T MaxValue, T DefaultValue, const char* ParamName) {
+    if(*PParam > MaxValue) {
+        Settings.LoadSuccessful = false;
+        *PParam = DefaultValue;
+        Printf("%S Bad Value\r", ParamName);
+    }
+}
+
 void Settings_t::Load() {
     LoadSuccessful = true;
     // Flaring
@@ -45,6 +64,16 @@ void Settings_t::Load() {
     LoadParam<uint32_t>("Motion", "TopAcceleration", &TopAcceleration);
     LoadParam<uint32_t>("Motion", "MMaxWindow", &MMaxWindow);
     LoadParam<uint32_t>("Motion", "MAvgWindow", &MAvgWindow);
+
+    // Check
+    CheckMinMax<uint32_t>(&Duration.MinOff, &Duration.MaxOff, 9, 18, "Duration Off");
+    CheckMinMax<uint32_t>(&Duration.MinOn, &Duration.MaxOn, 9, 18, "Duration On");
+    CheckMinMax<uint32_t>(&Smooth.MinSlow, &Smooth.MaxSlow, 270, 405, "Smooth Slow");
+    CheckMinMax<uint32_t>(&Smooth.MinFast, &Smooth.MaxFast, 270, 405, "Smooth Fast");
+    CheckMinMax<uint16_t>(&ClrHMin, &ClrHMax, 120, 270, "Color");
+    CheckValue<uint16_t>(&ClrHMin, 360, 120, "ClrHMin");
+    CheckValue<uint16_t>(&ClrHMax, 360, 270, "ClrHMax");
+    CheckValue<uint8_t>(&ClrVIdle, 100, 0, "ClrVIdle");
 
     // Report
     if(LoadSuccessful) Printf("Settings load ok\r");

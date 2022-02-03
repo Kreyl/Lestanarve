@@ -35,7 +35,6 @@ void ProcessAcc();
 
 // ==== USB & FileSys ====
 FATFS FlashFS;
-uint8_t LoadSettings();
 bool UsbIsConnected = false;
 
 // ==== Timers ====
@@ -104,12 +103,13 @@ int main(void) {
     FRESULT err;
     err = f_mount(&FlashFS, "", 0);
     if(err == FR_OK) {
-        if(LoadSettings() == retvOk) Lumos.StartOrRestart(lsqLStart);
+        Settings.Load();
+        if(Settings.LoadSuccessful) Lumos.StartOrRestart(lsqLStart);
         else Lumos.StartOrRestart(lsqLError);
     }
     else Printf("FS error\r");
 
-    Settings.Load();
+
 
 //    Acg.Init();
 
@@ -183,10 +183,6 @@ void ProcessUsbDetect(PinSnsState_t *PState, uint32_t Len) {
 
 void ProcessCharging(PinSnsState_t *PState, uint32_t Len) {
 
-}
-
-uint8_t LoadSettings() {
-    return retvOk;
 }
 
 #if 1 // ========================= Acg to Eff settings =========================
