@@ -43,7 +43,7 @@ static TmrKL_t TmrAcg {TIME_MS2I(11), evtIdAcc, tktPeriodic};
 int main(void) {
 #if 1 // ==== Init clock system ====
     Clk.SetVoltageRange(mvrHiPerf);
-    Clk.SetupFlashLatency(80, mvrHiPerf);
+    Clk.SetupFlashLatency(40, mvrHiPerf);
     Clk.EnablePrefetch();
     // HSE or MSI
     if(Clk.EnableHSE() == retvOk) {
@@ -54,8 +54,8 @@ int main(void) {
         Clk.SetupPllSrc(pllsrcMsi);
         Clk.SetupM(1);
     }
-    // SysClock 80MHz
-    Clk.SetupPll(40, 2, 4);
+    // SysClock 40MHz
+    Clk.SetupPll(20, 2, 4);
     Clk.SetupBusDividers(ahbDiv1, apbDiv1, apbDiv1);
     if(Clk.EnablePLL() == retvOk) {
         Clk.EnablePllROut();
@@ -112,8 +112,8 @@ int main(void) {
     Eff::Init();
 
     Motion::Init();
-//    Acg.Init();
-//    TmrAcg.StartOrRestart();
+    Acg.Init();
+    TmrAcg.StartOrRestart();
 
     UsbMsd.Init();
     SimpleSensors::Init();
