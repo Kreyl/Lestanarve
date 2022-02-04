@@ -174,7 +174,12 @@ void ProcessUsbDetect(PinSnsState_t *PState, uint32_t Len) {
 }
 
 void ProcessCharging(PinSnsState_t *PState, uint32_t Len) {
-
+    if(*PState == pssLo) {
+        Lumos.StartOrContinue(lsqLCharging);
+    }
+    else if(*PState == pssRising) { // Charge stopped
+        Lumos.StartOrContinue(lsqLStart);
+    }
 }
 
 #if 1 // ================= Command processing ====================
