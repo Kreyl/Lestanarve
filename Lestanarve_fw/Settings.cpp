@@ -38,11 +38,20 @@ void CheckMinMax(T *PMin, T *PMax, T DefaultMin, T DefaultMax, const char* Param
 }
 
 template <typename T>
-void CheckValue(T *PParam, T MaxValue, T DefaultValue, const char* ParamName) {
+void CheckValueMax(T *PParam, T MaxValue, T DefaultValue, const char* ParamName) {
     if(*PParam > MaxValue) {
         Settings.LoadSuccessful = false;
         *PParam = DefaultValue;
         Printf("%S Bad Value\r", ParamName);
+    }
+}
+
+template <typename T>
+void CheckValueMinMax(T *PParam, T MinValue, T MaxValue, T DefaultValue, const char* ParamName) {
+    if(*PParam > MaxValue or *PParam < MinValue) {
+        Settings.LoadSuccessful = false;
+        *PParam = DefaultValue;
+        Printf("%S Bad Values\r", ParamName);
     }
 }
 
@@ -71,9 +80,12 @@ void Settings_t::Load() {
     CheckMinMax<uint32_t>(&Smooth.MinSlow, &Smooth.MaxSlow, 270, 405, "Smooth Slow");
     CheckMinMax<uint32_t>(&Smooth.MinFast, &Smooth.MaxFast, 270, 405, "Smooth Fast");
     CheckMinMax<uint16_t>(&ClrHMin, &ClrHMax, 120, 270, "Color");
-    CheckValue<uint16_t>(&ClrHMin, 360, 120, "ClrHMin");
-    CheckValue<uint16_t>(&ClrHMax, 360, 270, "ClrHMax");
-    CheckValue<uint8_t>(&ClrVIdle, 100, 0, "ClrVIdle");
+    CheckValueMax<uint16_t>(&ClrHMin, 360, 120, "ClrHMin");
+    CheckValueMax<uint16_t>(&ClrHMax, 360, 270, "ClrHMax");
+    CheckValueMax<uint8_t>(&ClrVIdle, 100, 0, "ClrVIdle");
+    CheckValueMax<uint32_t>(&TopAcceleration, 0x7FFFFFFE, 2000000, "TopAcceleration");
+    CheckValueMinMax<uint32_t>(&MMaxWindow, 4, MMAX_WINDOW_MAX, 64, "MMaxWindow");
+    CheckValueMinMax<uint32_t>(&MAvgWindow, 2, MAVG_WINDOW_MAX, 256, "MAvgWindow");
 
     // Report
     if(LoadSuccessful) Printf("Settings load ok\r");

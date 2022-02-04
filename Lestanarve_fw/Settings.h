@@ -10,6 +10,8 @@
 #include <inttypes.h>
 
 #define SETTINGS_FILENAME   "Settings.ini"
+#define MAVG_WINDOW_MAX     256
+#define MMAX_WINDOW_MAX     512
 
 class Settings_t {
 public:

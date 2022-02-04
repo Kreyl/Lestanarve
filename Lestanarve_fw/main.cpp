@@ -11,10 +11,10 @@
 #include "SimpleSensors.h"
 #include "ws2812b.h"
 #include "LedEffects.h"
-#include <math.h>
 #include "kl_fs_utils.h"
 #include "usb_msd.h"
 #include "Settings.h"
+#include "Motion.h"
 
 #if 1 // ======================== Variables and defines ========================
 // Forever
@@ -31,7 +31,6 @@ static const NeopixelParams_t NpxParams {NPX_SPI, NPX_DATA_PIN,
     NPX_LED_CNT, npxRGB
 };
 Neopixels_t Leds{&NpxParams};
-void ProcessAcc();
 
 // ==== USB & FileSys ====
 FATFS FlashFS;
@@ -110,11 +109,10 @@ int main(void) {
     else Printf("FS error\r");
 
 
-
-//    Acg.Init();
-
     Eff::Init();
 
+    Motion::Init();
+//    Acg.Init();
 //    TmrAcg.StartOrRestart();
 
     UsbMsd.Init();
@@ -123,11 +121,6 @@ int main(void) {
 
     // ==== Time and timers ====
 //    TmrEverySecond.StartOrRestart();
-
-    // ==== Radio ====
-//    if(Radio.Init() == retvOk) Led.StartOrRestart(lsqStart);
-//    else Led.StartOrRestart(lsqFailure);
-//    chThdSleepMilliseconds(1008);
 
     // Main cycle
     ITask();
@@ -144,7 +137,7 @@ void ITask() {
 //                break;
 
             case evtIdAcc:
-                ProcessAcc();
+                Motion::Update();
                 break;
 
             case evtIdShellCmdRcvd:
@@ -159,7 +152,6 @@ void ITask() {
             case evtIdUsbDisconnect:
                 UsbMsd.Disconnect();
                 Printf("USB disconnect\r");
-//                if(Settings.Load() != retvOk) LedInd.StartOrRestart(lsqError); // XXX
                 break;
             case evtIdUsbReady:
                 Printf("USB ready\r");
@@ -184,88 +176,6 @@ void ProcessUsbDetect(PinSnsState_t *PState, uint32_t Len) {
 void ProcessCharging(PinSnsState_t *PState, uint32_t Len) {
 
 }
-
-#if 1 // ========================= Acg to Eff settings =========================
-float Diff(float x0) {
-    static float y1 = 0;
-    static float x1 = 4300000;
-    float y0 = x0 - x1 + 0.9 * y1;
-    y1 = y0;
-    x1 = x0;
-    return y0;
-}
-
-template <uint32_t WindowSz>
-class MAvg_t {
-private:
-    float IBuf[WindowSz], ISum;
-public:
-    float CalcNew(float NewVal) {
-        ISum = ISum + NewVal - IBuf[WindowSz-1];
-        // Shift buf
-        for(int i=(WindowSz-1); i>0; i--) IBuf[i] = IBuf[i-1];
-        IBuf[0] = NewVal;
-        return ISum / WindowSz;
-    }
-};
-
-template <uint32_t WindowSz>
-class MMax_t {
-private:
-    uint32_t Cnt1 = 0, Cnt2 = WindowSz / 2;
-    float Max1 = -INFINITY, Max2 = -INFINITY;
-public:
-    float CalcNew(float NewVal) {
-        Cnt1++;
-        Cnt2++;
-        // Threat Max2
-        if(Cnt2 >= WindowSz) {
-            Max2 = NewVal;
-            Cnt2 = 0;
-        }
-        else {
-            if(NewVal > Max2) Max2 = NewVal;
-        }
-        // Threat Max1
-        if(Cnt1 >= WindowSz) {
-            Cnt1 = 0;
-            Max1 = (NewVal > Max2)? NewVal : Max2;
-        }
-        else { if(NewVal > Max1) Max1 = NewVal; }
-        return Max1;
-    }
-};
-
-MAvg_t<8> MAvgAcc;
-MMax_t<64> MMaxDelta;
-MAvg_t<256> MAvgDelta;
-
-void ProcessAcc() {
-    AccSpd_t AccSpd;
-    chSysLock();
-    AccSpd = Acg.AccSpd;
-    chSysUnlock();
-    float a = AccSpd.a[0] * AccSpd.a[0] + AccSpd.a[1] * AccSpd.a[1] + AccSpd.a[2] * AccSpd.a[2];
-    a = Diff(a);
-    float Avg = MAvgAcc.CalcNew(a);
-    float Delta = abs(Avg);
-    if(Delta > Settings.TopAcceleration) Delta = Settings.TopAcceleration;
-//    Delta = MAvgDelta.CalcNew(Delta);
-    float DeltaMax = MMaxDelta.CalcNew(Delta);
-    float xval = MAvgDelta.CalcNew(DeltaMax);
-    // Calculate new settings
-    float fSmoothMin = abs(Proportion<float>(0, Settings.TopAcceleration, Settings.Smooth.MinSlow, Settings.Smooth.MinFast, xval));
-    float fSmoothMax = abs(Proportion<float>(0, Settings.TopAcceleration, Settings.Smooth.MaxSlow, Settings.Smooth.MaxFast, xval));
-    int32_t SmoothMin = (int32_t) fSmoothMin;
-    int32_t SmoothMax = (int32_t) fSmoothMax;
-
-    chSysLock();
-    Settings.Smooth.MinCurr = SmoothMin;
-    Settings.Smooth.MaxCurr = SmoothMax;
-    chSysUnlock();
-//    Printf("%d\t%d\r", SmoothMin, SmoothMax);
-}
-#endif
 
 #if 1 // ================= Command processing ====================
 void OnCmd(Shell_t *PShell) {
