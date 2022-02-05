@@ -3,6 +3,10 @@
 // ==== General ====
 #define APP_NAME            "Lestanarve"
 
+#ifndef TRUE
+#define TRUE 1
+#endif
+
 // Version of PCB
 #define PCB_VER                 1
 
@@ -24,7 +28,7 @@
 #define SIMPLESENSORS_ENABLED   TRUE
 #define BUTTONS_ENABLED         FALSE
 
-#define ADC_REQUIRED            FALSE
+#define ADC_REQUIRED            TRUE
 #define STM32_DMA_REQUIRED      TRUE    // Leave this macro name for OS
 
 #if 1 // ========================== GPIO =======================================
@@ -37,7 +41,7 @@
 // Battery
 #define IS_CHARGING     GPIOA, 0, pudPullUp
 #define BAT_MEAS_EN     GPIOB, 0
-#define BAT_ADC_PIN     GPIOB, 1
+#define BAT_ADC_PIN     GPIOB, 1, 16 // PB1, ADC channel 16
 
 // Light
 #define LED_PIN         { GPIOB, 8, TIM16, 1, invNotInverted, omPushPull, 255 }
@@ -122,7 +126,7 @@
 #define I2C1_DMA_CHNL   3
 
 #if ADC_REQUIRED
-#define ADC_DMA         STM32_DMA1_STREAM1
+#define ADC_DMA         STM32_DMA_STREAM_ID(1, 1)
 #define ADC_DMA_MODE    STM32_DMA_CR_CHSEL(0) |   /* DMA1 Stream1 Channel0 */ \
                         DMA_PRIORITY_LOW | \
                         STM32_DMA_CR_MSIZE_HWORD | \

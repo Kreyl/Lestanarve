@@ -23,8 +23,7 @@ enum EvtMsgId_t {
     evtIdUsbOutDone,
 
     // Misc periph
+    evtIdADC,
     evtIdAcc,
     evtIdPwrOffTimeout,
-
-    // App specific
 };

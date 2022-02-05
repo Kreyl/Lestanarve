@@ -15,6 +15,7 @@
 #include "usb_msd.h"
 #include "Settings.h"
 #include "Motion.h"
+#include "adcL476.h"
 
 #if 1 // ======================== Variables and defines ========================
 // Forever
@@ -32,9 +33,29 @@ static const NeopixelParams_t NpxParams {NPX_SPI, NPX_DATA_PIN,
 };
 Neopixels_t Leds{&NpxParams};
 
+void LedPwrOn()  { PinSetHi(NPX_PWR_PIN); }
+void LedPwrOff() { PinSetLo(NPX_PWR_PIN); }
+
 // ==== USB & FileSys ====
 FATFS FlashFS;
 bool UsbIsConnected = false;
+
+// ==== ADC ====
+#define BATTERY_DEAD_mv 3300
+void OnAdcDoneI();
+
+const AdcSetup_t AdcSetup = {
+        .SampleTime = ast12d5Cycles,
+        .Oversampling = AdcSetup_t::oversmp128,
+        .DoneCallback = OnAdcDoneI,
+        .Channels = {
+                {BAT_ADC_PIN},
+                {nullptr, 0, ADC_VREFINT_CHNL}
+        }
+};
+
+static void EnterSleepNow();
+static void EnterSleep();
 
 // ==== Timers ====
 static TmrKL_t TmrAcg {TIME_MS2I(11), evtIdAcc, tktPeriodic};
@@ -94,7 +115,7 @@ int main(void) {
     Leds.Init();
     // LED pwr pin
     PinSetupOut(NPX_PWR_PIN, omPushPull);
-    PinSetHi(NPX_PWR_PIN);
+    LedPwrOn();
 //    Leds.SetAll(clGreen);
 //    Leds.SetCurrentColors();
 
@@ -108,19 +129,23 @@ int main(void) {
     }
     else Printf("FS error\r");
 
-
     Eff::Init();
-
     Motion::Init();
     Acg.Init();
     TmrAcg.StartOrRestart();
 
     UsbMsd.Init();
     SimpleSensors::Init();
-//    Adc.Init();
 
-    // ==== Time and timers ====
-//    TmrEverySecond.StartOrRestart();
+    // Battery measurement
+    PinSetupOut(BAT_MEAS_EN, omPushPull);
+    PinSetHi(BAT_MEAS_EN); // Enable it forever, as 200k produces ignorable current
+
+    // Inner ADC
+    Adc.Init(AdcSetup);
+    Adc.StartPeriodicMeasurement(1);
+//    PinSetupAnalog(ADC_BAT_PIN);
+
 
     // Main cycle
     ITask();
@@ -131,10 +156,15 @@ void ITask() {
     while(true) {
         EvtMsg_t Msg = EvtQMain.Fetch(TIME_INFINITE);
         switch(Msg.ID) {
-//            case evtIdEverySecond:
-//                TimeS++;
-//                ReadAndSetupMode();
-//                break;
+            case evtIdADC: {
+                Iwdg::Reload();
+                uint32_t Battery_mV = 2 * Adc.Adc2mV(Msg.Values16[0], Msg.Values16[1]); // *2 because of resistor divider
+                Printf("VBat: %u mV\r", Battery_mV);
+                if(Battery_mV < BATTERY_DEAD_mv) {
+                    Printf("Discharged: %u\r", Battery_mV);
+                    EnterSleep();
+                }
+            } break;
 
             case evtIdAcc:
                 Motion::Update();
@@ -176,10 +206,42 @@ void ProcessUsbDetect(PinSnsState_t *PState, uint32_t Len) {
 void ProcessCharging(PinSnsState_t *PState, uint32_t Len) {
     if(*PState == pssLo) {
         Lumos.StartOrContinue(lsqLCharging);
+        LedPwrOff();
     }
     else if(*PState == pssRising) { // Charge stopped
         Lumos.StartOrContinue(lsqLStart);
     }
+    else if(*PState == pssHi) LedPwrOn();
+}
+
+void OnAdcDoneI() {
+    AdcBuf_t &FBuf = Adc.GetBuf();
+    EvtMsg_t Msg(evtIdADC);
+    Msg.Values16[0] = FBuf[0];
+    Msg.Values16[1] = FBuf[1];
+    EvtQMain.SendNowOrExitI(Msg);
+}
+
+void EnterSleepNow() {
+    // Enable inner pull-ups
+    PWR->PUCRA |= PWR_PDCRA_PA0; // Charging
+    // Enable inner pull-downs
+    PWR->PDCRA |= PWR_PDCRA_PA2; // USB
+    // Apply PullUps and PullDowns
+    PWR->CR3 |= PWR_CR3_APC;
+    // Enable wake-up srcs
+    Sleep::EnableWakeup1Pin(rfFalling); // Charging
+    Sleep::EnableWakeup4Pin(rfRising); // USB
+    Sleep::ClearWUFFlags();
+    Sleep::EnterStandby();
+}
+
+void EnterSleep() {
+    Printf("Entering sleep\r");
+    chThdSleepMilliseconds(45);
+    chSysLock();
+    EnterSleepNow();
+    chSysUnlock();
 }
 
 #if 1 // ================= Command processing ====================
@@ -241,14 +303,6 @@ void OnCmd(Shell_t *PShell) {
         PShell->Ok();
     }
 */
-//    else if(PCmd->NameIs("Radius")) {
-//        uint32_t Delay;
-//        Color_t Clr;
-//        if(PCmd->GetNext<uint32_t>(&Delay) != retvOk) { PShell->BadParam(); return; }
-//        if(PCmd->GetClrRGB(&Clr) != retvOk) { PShell->BadParam(); return; }
-//        Eff::StartRadius(Delay, Clr);
-//        PShell->Ok();
-//    }
 
     else if(PCmd->NameIs("CLS")) {
         Leds.SetAll(clBlack);
